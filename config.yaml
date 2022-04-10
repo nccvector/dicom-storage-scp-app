@@ -1,0 +1,8 @@
+ae_title: 'KPServer'
+ip: '192.168.0.121'
+port: 104
+max_pdu: 0
+acse_timeout: 30
+dimse_timeout: 30
+network_timeout: 30
+instance_location: 'archive'

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """A Storage SCP application.
 Used for receiving DICOM SOP Instances transferred from an SCU.
 """
@@ -219,7 +218,7 @@ def main(args=None):
     handlers = [(evt.EVT_C_STORE, handle_store, [args, APP_LOGGER])]
 
     # Create application entity
-    ae = AE(ae_title='KPServer')
+    ae = AE(ae_title=args.ae_title)
 
     # Add presentation contexts with specified transfer syntaxes
     for context in AllStoragePresentationContexts:
@@ -229,14 +228,14 @@ def main(args=None):
         for context in VerificationPresentationContexts:
             ae.add_supported_context(context.abstract_syntax, transfer_syntax)
 
-    # ae.maximum_pdu_size = args.max_pdu
+    ae.maximum_pdu_size = args.max_pdu
 
     # Set timeouts
     ae.network_timeout = args.network_timeout
     ae.acse_timeout = args.acse_timeout
     ae.dimse_timeout = args.dimse_timeout
 
-    ae.start_server(('169.254.121.255', 104), evt_handlers=handlers)
+    ae.start_server((args.bind_address, args.port), evt_handlers=handlers)
 
 
 if __name__ == "__main__":
