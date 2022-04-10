@@ -225,7 +225,7 @@ if __name__ == "__main__":
     view = View()
 
     # Starting server
-    process = subprocess.Popen(['python3', 'storescp.py', 
+    process = subprocess.Popen(['python', 'storescp.py', 
                             str(view.config['port']), 
                             '-ba', view.config['ip'], 
                             '-od', view.config['instance_location'], 
