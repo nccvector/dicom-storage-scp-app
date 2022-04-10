@@ -236,5 +236,5 @@ if __name__ == "__main__":
 
     view.show()
     app.exec()
-    os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+    os.kill(process.pid, signal.SIGTERM)
     sys.exit()
