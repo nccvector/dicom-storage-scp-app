@@ -5,19 +5,34 @@ import subprocess
 import yaml
 from glob import glob
 
+# Processing includes
 import numpy as np
 from cv2 import cv2
+from enum import Enum
+
+# Dicom includes
 import pydicom
 import storescp
 
+# GUI imports
 import PySide6
 from PySide6 import QtWidgets
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
+import qdarktheme
+
+class Format(Enum):
+    TIF = 0
+    BMP = 1
+    PNG = 2
+    JPG = 3
 
 class View(QMainWindow):
     def __init__(self):
+
+        # Setting default formate
+        self.format = Format.BMP
 
         # Loading config file
 
@@ -44,20 +59,31 @@ class View(QMainWindow):
         # self.tree_view.expanded.connect(self.onExpand)
         self.tree_view.clicked.connect(self.on_click)
         self.label = QLabel(self._w_main)
-        self.buttonLayout = QVBoxLayout()
-        self.convertAllToJpegButton = QPushButton("Convert All -> Jpeg")
-        self.convertAllToJpegButton.clicked.connect(self.convertAllToJpeg)
-        self.buttonLayout.addWidget(self.convertAllToJpegButton)
-        # self.label.setFixedSize(800, 600)
+        self.buttonLayout = QHBoxLayout()
+        self.convertAllButton = QPushButton("Convert All")
+        self.convertAllButton.clicked.connect(self.convertAll)
 
         # Loading image
-        self.nullImage = np.zeros((600, 800, 3))
+        self.nullImage = np.zeros((self.frameHeight, self.frameWidth, 3))
         self.showImage(self.nullImage)
 
+        # Creating combo box
+        self.comboBox = QComboBox()
+        for enum in Format:
+            self.comboBox.addItem(enum.name)
+        self.comboBox.currentIndexChanged.connect(self.index_changed)
+        
+        # Setting button layout
+        self.buttonLayout.addWidget(self.comboBox)
+        self.buttonLayout.addWidget(self.convertAllButton)
+
+        # Laying out
         self._layout = QHBoxLayout()
+        self._rightLayout = QVBoxLayout()
+        self._rightLayout.addLayout(self.buttonLayout)
+        self._rightLayout.addWidget(self.label)
         self._layout.addWidget(self.tree_view)
-        self._layout.addWidget(self.label)
-        self._layout.addLayout(self.buttonLayout)
+        self._layout.addLayout(self._rightLayout)
         self._w_main.setLayout(self._layout)
 
         # Creating and configuring model
@@ -96,25 +122,22 @@ class View(QMainWindow):
         filetype = QFileSystemModel(self.model).type(mappedIndex)
         extension = path.split('.')[-1]
 
-        if "jpeg" in filetype or "JPEG" in filetype or "Jpeg" in filetype:
-            print("file is jpeg")
-
-            # Loading image
-            self.showJpegImage(path)
-
-        elif "dicom" in filetype or "DICOM" in filetype or "Dicom" in filetype:
+        if "dicom" in filetype or "DICOM" in filetype or "Dicom" in filetype:
             print("file is dicom")
 
             self.showDicomImage(path)
 
         else:
-            print("Un-supported file type")
-
-            self.showImage(self.nullImage)
+            self.showJpegImage(path)
+            # self.showImage(self.nullImage)
 
         print("File Path:   ", path)
         print("File Type:   ", filetype)
         print("File Ext:    ", extension)
+    
+    def index_changed(self, index):
+        self.format = Format(index)
+        print("FORMAT SELECTED: ", self.format.name)
 
     # Expects opencv frame
     def showImage(self, frame):
@@ -133,7 +156,7 @@ class View(QMainWindow):
         self.label.setPixmap(pixmap)
     
     def showJpegImage(self, path):
-        frame = cv2.imread(path)
+        frame = cv2.imread(path)[:, :, ::-1]
         
         self.showImage(frame)
     
@@ -175,27 +198,35 @@ class View(QMainWindow):
 
         # Updating acceptable frame dimensions
         self.frameWidth = int(0.75 * event.size().width())
-        self.frameHeight = int(0.9 * event.size().height())
+        self.frameHeight = int(0.75 * event.size().height())
 
         # Resizing label
+        # self._rightLayout.SetFixedSize(self.frameWidth, self.frameHeight)
         self.label.setFixedSize(self.frameWidth, self.frameHeight)
 
         # Updating the image by calling show image
         self.showImage(self.currentFrame)
     
-    def convertAllToJpeg(self):
+    def convertAll(self):
         for f in glob('./' + self.config['instance_location'] + '/*'):
-            print("Displaying file: ", f)
-
             dataset = pydicom.dcmread(f)
-            # print(dataset.pixel_array.shape)
 
             try:
-
                 if(len(dataset.pixel_array.shape) == 4):
-                    cv2.imwrite(f + '.jpg', dataset.pixel_array[int(i/2), :, :, :], [cv2.IMWRITE_JPEG_QUALITY, 100])
+                    print("4D Image not supported")
                 else:
-                    cv2.imwrite(f + '.jpg', dataset.pixel_array[:, :, :], [cv2.IMWRITE_JPEG_QUALITY, 100])
+                    if(self.format == Format.TIF):
+                        print('Dumping TIFF')
+                        cv2.imwrite(f + '.tif', dataset.pixel_array[:, :, :])
+                    elif(self.format == Format.BMP):
+                        print('Dumping BMP')
+                        cv2.imwrite(f + '.bmp', dataset.pixel_array[:, :, :])
+                    elif(self.format == Format.PNG):
+                        print('Dumping PNG')
+                        cv2.imwrite(f + '.png', dataset.pixel_array[:, :, :])
+                    if(self.format == Format.JPG):
+                        print('Dumping JPEG')
+                        cv2.imwrite(f + '.jpg', dataset.pixel_array[:, :, :], [cv2.IMWRITE_JPEG_QUALITY, 100])
             except:
                 print("ERROR! COULD NOT SAVE THIS FILE: " + f)
                 pass
@@ -221,6 +252,7 @@ class SortingModel(QSortFilterProxyModel):
 if __name__ == "__main__":
 
     app = QtWidgets.QApplication([])
+    app.setStyleSheet(qdarktheme.load_stylesheet())
 
     view = View()
 

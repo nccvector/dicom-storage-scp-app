@@ -1,5 +1,5 @@
 ae_title: 'KPServer'
-ip: '192.168.0.121'
+ip: '192.168.0.10'
 port: 104
 max_pdu: 0
 acse_timeout: 30
