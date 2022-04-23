@@ -5,4 +5,4 @@ max_pdu: 0
 acse_timeout: 30
 dimse_timeout: 30
 network_timeout: 30
-instance_location: 'archive'
+archive_path: 'archive'

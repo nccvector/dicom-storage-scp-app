@@ -1,7 +1,8 @@
-import os
+import os, shutil
 import signal
 import sys
 import subprocess
+from tabnanny import filename_only
 import yaml
 from glob import glob
 
@@ -23,8 +24,8 @@ from PySide6.QtGui import *
 import qdarktheme
 
 class Format(Enum):
-    TIF = 0
-    BMP = 1
+    BMP = 0
+    TIF = 1
     PNG = 2
     JPG = 3
 
@@ -35,7 +36,6 @@ class View(QMainWindow):
         self.format = Format.BMP
 
         # Loading config file
-
         self.config = None
         with open("./config.yaml", 'r') as stream:
             try:
@@ -43,6 +43,10 @@ class View(QMainWindow):
                 print('Config: ', self.config)
             except yaml.YAMLError as exc:
                 print(exc)
+        
+        self.paths = self.verifyAndCreatePaths()
+        for path in self.paths.values():
+            print(path)
 
         super().__init__()
         self.frameCounter = 0
@@ -62,6 +66,8 @@ class View(QMainWindow):
         self.buttonLayout = QHBoxLayout()
         self.convertAllButton = QPushButton("Convert All")
         self.convertAllButton.clicked.connect(self.convertAll)
+        self.clearAllButton = QPushButton("Clear All")
+        self.clearAllButton.clicked.connect(self.clearAll)
 
         # Loading image
         self.nullImage = np.zeros((self.frameHeight, self.frameWidth, 3))
@@ -76,6 +82,7 @@ class View(QMainWindow):
         # Setting button layout
         self.buttonLayout.addWidget(self.comboBox)
         self.buttonLayout.addWidget(self.convertAllButton)
+        self.buttonLayout.addWidget(self.clearAllButton)
 
         # Laying out
         self._layout = QHBoxLayout()
@@ -88,7 +95,7 @@ class View(QMainWindow):
 
         # Creating and configuring model
         self.model = QFileSystemModel()
-        self.model.setRootPath('./' + self.config['instance_location'])
+        self.model.setRootPath('./' + self.paths['DCM'])
         self.model.setFilter(QDir.NoDot | QDir.AllEntries)
         self.model.sort(0, Qt.SortOrder.AscendingOrder)
 
@@ -96,9 +103,27 @@ class View(QMainWindow):
         self.sorting_model.setSourceModel(self.model)
 
         self.tree_view.setModel(self.sorting_model)
-        self.tree_view.setRootIndex(self.sorting_model.mapFromSource(self.model.index('./' + self.config['instance_location'])))
+        self.tree_view.setRootIndex(self.sorting_model.mapFromSource(self.model.index('./' + self.paths['DCM'])))
         self.tree_view.header().setSortIndicator(0, Qt.AscendingOrder)
         self.tree_view.setSortingEnabled(True)
+    
+    def verifyAndCreatePaths(self):
+        # Creating paths var
+        formats = [format.name for format in Format]
+        formats.append('DCM')   # Adding dicom folder
+        
+        paths = {}
+        for form in formats:
+            paths[form] = self.config['archive_path'] + '/' + form
+        
+        # Verifying and creating paths
+        for path in paths.values():
+            # Creating an archive folder is doesnt exist
+            if not os.path.exists(path):
+                print("CREATING " + path)
+                os.makedirs(path)
+        
+        return paths
     
     def traverseDirectory(self, parentindex):
         print('traverseDirectory():')
@@ -156,7 +181,7 @@ class View(QMainWindow):
         self.label.setPixmap(pixmap)
     
     def showJpegImage(self, path):
-        frame = cv2.imread(path)[:, :, ::-1]
+        frame = cv2.imread(path)
         
         self.showImage(frame)
     
@@ -164,7 +189,7 @@ class View(QMainWindow):
         dataset = pydicom.dcmread(path)
 
         if(len(dataset.pixel_array.shape) == 4):
-            print("FOUR FOUR FOUR FOUR FOUR")
+            print("STARTING VIDEO...")
             frame = dataset.pixel_array
             self.showVideo(frame)
 
@@ -208,28 +233,64 @@ class View(QMainWindow):
         self.showImage(self.currentFrame)
     
     def convertAll(self):
-        for f in glob('./' + self.config['instance_location'] + '/*'):
+        print("CONVERTING FILES")
+        print("Dumping ", self.format.name)
+        for f in glob('./' + self.paths['DCM'] + '/*'):
             dataset = pydicom.dcmread(f)
+            filename = f.split("/")[-1]
+            filepath = self.paths[self.format.name] + '/' + filename + '.' + self.format.name.lower()
+            print(filepath)
 
             try:
-                if(len(dataset.pixel_array.shape) == 4):
-                    print("4D Image not supported")
+                if len(dataset.pixel_array.shape) == 4:
+                    print("4D IMAGE NOT SUPPORTED FOR CONVERSION YET...")
                 else:
-                    if(self.format == Format.TIF):
-                        print('Dumping TIFF')
-                        cv2.imwrite(f + '.tif', dataset.pixel_array[:, :, :])
-                    elif(self.format == Format.BMP):
-                        print('Dumping BMP')
-                        cv2.imwrite(f + '.bmp', dataset.pixel_array[:, :, :])
-                    elif(self.format == Format.PNG):
-                        print('Dumping PNG')
-                        cv2.imwrite(f + '.png', dataset.pixel_array[:, :, :])
                     if(self.format == Format.JPG):
-                        print('Dumping JPEG')
-                        cv2.imwrite(f + '.jpg', dataset.pixel_array[:, :, :], [cv2.IMWRITE_JPEG_QUALITY, 100])
+                        cv2.imwrite(filepath + '.jpg', dataset.pixel_array[:, :, :], [cv2.IMWRITE_JPEG_QUALITY, 100])
+                    else:
+                        cv2.imwrite(filepath + '.png', dataset.pixel_array[:, :, :])
             except:
                 print("ERROR! COULD NOT SAVE THIS FILE: " + f)
                 pass
+    
+    def clearAll(self):
+
+        dlg = DeleteConfirmationDialog()
+
+        if not dlg.exec():
+            print("Cancelled")
+            return
+
+        print("Deleting")
+        for folder in self.paths.values():
+            for filename in os.listdir(folder):
+                file_path = os.path.join(folder, filename)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    print('Failed to delete %s. Reason: %s' % (file_path, e))
+
+
+class DeleteConfirmationDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Confirm!")
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.layout = QVBoxLayout()
+        message = QLabel("Are you sure you want to delete?")
+        self.layout.addWidget(message)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
 
 
 class SortingModel(QSortFilterProxyModel):
@@ -260,7 +321,7 @@ if __name__ == "__main__":
     process = subprocess.Popen(['python', 'storescp.py', 
                             str(view.config['port']), 
                             '-ba', view.config['ip'], 
-                            '-od', view.config['instance_location'], 
+                            '-od', view.paths['DCM'], 
                             '-aet', view.config['ae_title'], 
                             '-v'], 
                             stdout=subprocess.PIPE,
