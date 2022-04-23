@@ -64,6 +64,7 @@ class View(QMainWindow):
         self.tree_view.clicked.connect(self.on_click)
         self.label = QLabel(self._w_main)
         self.buttonLayout = QHBoxLayout()
+        self.formatLabel = QLabel("Save Format:")
         self.convertAllButton = QPushButton("Convert All")
         self.convertAllButton.clicked.connect(self.convertAll)
         self.clearAllButton = QPushButton("Clear All")
@@ -80,6 +81,7 @@ class View(QMainWindow):
         self.comboBox.currentIndexChanged.connect(self.index_changed)
         
         # Setting button layout
+        self.buttonLayout.addWidget(self.formatLabel, alignment=Qt.AlignRight)
         self.buttonLayout.addWidget(self.comboBox)
         self.buttonLayout.addWidget(self.convertAllButton)
         self.buttonLayout.addWidget(self.clearAllButton)
@@ -237,6 +239,8 @@ class View(QMainWindow):
         print("Dumping ", self.format.name)
         for f in glob('./' + self.paths['DCM'] + '/*'):
             dataset = pydicom.dcmread(f)
+
+            # Creating file path
             filename = f.split("/")[-1]
             filepath = self.paths[self.format.name] + '/' + filename + '.' + self.format.name.lower()
             print(filepath)
@@ -245,10 +249,14 @@ class View(QMainWindow):
                 if len(dataset.pixel_array.shape) == 4:
                     print("4D IMAGE NOT SUPPORTED FOR CONVERSION YET...")
                 else:
+
+                    # Have to swtich color channels before saving with opencv
+                    data = dataset.pixel_array[:, :, ::-1]
+
                     if(self.format == Format.JPG):
-                        cv2.imwrite(filepath + '.jpg', dataset.pixel_array[:, :, :], [cv2.IMWRITE_JPEG_QUALITY, 100])
+                        cv2.imwrite(filepath + '.jpg', data, [cv2.IMWRITE_JPEG_QUALITY, 100])
                     else:
-                        cv2.imwrite(filepath + '.png', dataset.pixel_array[:, :, :])
+                        cv2.imwrite(filepath + '.png', data)
             except:
                 print("ERROR! COULD NOT SAVE THIS FILE: " + f)
                 pass
@@ -287,7 +295,7 @@ class DeleteConfirmationDialog(QDialog):
         self.buttonBox.rejected.connect(self.reject)
 
         self.layout = QVBoxLayout()
-        message = QLabel("Are you sure you want to delete?")
+        message = QLabel("Are you sure you want to delete all files?")
         self.layout.addWidget(message)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
