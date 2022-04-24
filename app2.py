@@ -5,7 +5,7 @@ from glob import glob
 
 # Processing includes
 import numpy as np
-from cv2 import cv2
+from cv2 import borderInterpolate, cv2
 from enum import Enum
 from functools import partial
 
@@ -16,8 +16,8 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 import qdarktheme
 
-frameWidth = 960
-frameHeight = 720
+frameWidth = 600
+frameHeight = 600
 
 
 class Corner(Enum):
@@ -58,7 +58,18 @@ class LayoutView(QMainWindow):
         fullImage[frameHeight:, :frameWidth, :] = self.quadImageGroupBox.images[Corner.BL.name]
         fullImage[frameHeight:, frameWidth:, :] = self.quadImageGroupBox.images[Corner.BR.name]
 
-        cv2.imwrite('archive/' + self.saveForm.filename.text(), fullImage)
+        bordersize = 30
+        bordered = cv2.copyMakeBorder(
+            fullImage,
+            top=bordersize,
+            bottom=bordersize,
+            left=bordersize,
+            right=bordersize,
+            borderType=cv2.BORDER_CONSTANT,
+            value=[255, 255, 255]
+        )
+
+        cv2.imwrite('archive/' + self.saveForm.filename.text(), bordered)
 
         self.close()
         # self.reset()
@@ -111,6 +122,9 @@ class QuadImageGroupBox(QGroupBox):
             self.images[corner.name] = None
 
         self.setLayout(self.gridLayout)
+        self.updateSize()
+    
+    def updateSize(self):
         self.setFixedSize(frameWidth + 30, frameHeight + 30)
     
     def onClick(self, corner):
@@ -120,6 +134,13 @@ class QuadImageGroupBox(QGroupBox):
     def setImage(self, path):
         # loading image using cv2
         image = cv2.imread(path)
+
+        # Update the frame size
+        global frameWidth, frameHeight
+        frameWidth = image.shape[1]
+        frameHeight = image.shape[0]
+        self.updateSize()
+
         self.images[self.currentCorner.name] = image
 
         # Saving preview image
