@@ -258,7 +258,7 @@ class View(QMainWindow):
 
             # Creating file path
             filename = f.split("/")[-1]
-            filepath = self.paths[self.format.name] + '/' + filename + '.' + self.format.name.lower()
+            filepath = self.paths[self.format.name] + '/' + filename + '.'
             print(filepath)
 
             try:
@@ -272,7 +272,7 @@ class View(QMainWindow):
                     if(self.format == Format.JPG):
                         cv2.imwrite(filepath + '.jpg', data, [cv2.IMWRITE_JPEG_QUALITY, 100])
                     else:
-                        cv2.imwrite(filepath + '.png', data)
+                        cv2.imwrite(filepath + self.format.name.lower(), data)
             except:
                 print("ERROR! COULD NOT SAVE THIS FILE: " + f)
                 pass
