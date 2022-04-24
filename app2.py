@@ -27,11 +27,14 @@ class Corner(Enum):
     BR = [1, 1]
 
 
-class View(QMainWindow):
-    def __init__(self):
+class LayoutView(QMainWindow):
+    def __init__(self, path):
 
         super().__init__()
-
+        self.path = path
+        self.reset()
+   
+    def reset(self):
         self._w_main = QWidget()
         self.setCentralWidget(self._w_main)
 
@@ -45,6 +48,7 @@ class View(QMainWindow):
         self.stackedLayout.addWidget(self.saveForm)
         
         self._w_main.setLayout(self.stackedLayout)
+ 
     
     def concatAndSave(self):
         fullImage = np.zeros((2 * frameHeight, 2 * frameWidth, 3), dtype=np.uint8)
@@ -56,13 +60,10 @@ class View(QMainWindow):
 
         cv2.imwrite('archive/' + self.saveForm.filename.text(), fullImage)
 
-        self.restart()    
-        # cv2.imshow('image', fullImage)
-        # cv2.waitKey(0)
+        self.close()
+        # self.reset()
+        # self.hide()
     
-    def restart(self):
-        self.stackedLayout.setCurrentIndex(0)
-
 
 class SaveForm(QWidget):
     def __init__(self, parent):
@@ -202,7 +203,7 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication([])
     app.setStyleSheet(qdarktheme.load_stylesheet())
 
-    view = View()
+    view = LayoutView('archive/BMP')
 
     view.show()
     app.exec()

@@ -2,7 +2,6 @@ import os, shutil
 import signal
 import sys
 import subprocess
-from tabnanny import filename_only
 import yaml
 from glob import glob
 
@@ -23,17 +22,28 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 import qdarktheme
 
+# App imports
+from app2 import LayoutView
+
 class Format(Enum):
     BMP = 0
     TIF = 1
     PNG = 2
     JPG = 3
 
+def launchLayoutManager(path):
+    view = LayoutView(path)
+    view.show()
+
+
 class View(QMainWindow):
     def __init__(self):
-
+        super().__init__()
         # Setting default formate
         self.format = Format.BMP
+        self.reset()
+    
+    def reset(self):
 
         # Loading config file
         self.config = None
@@ -48,7 +58,6 @@ class View(QMainWindow):
         for path in self.paths.values():
             print(path)
 
-        super().__init__()
         self.frameCounter = 0
         self.frames = None
         self.currentFrame = None
@@ -69,6 +78,8 @@ class View(QMainWindow):
         self.convertAllButton.clicked.connect(self.convertAll)
         self.clearAllButton = QPushButton("Clear All")
         self.clearAllButton.clicked.connect(self.clearAll)
+        self.layoutButton = QPushButton("Layout Images")
+        self.layoutButton.clicked.connect(self.launchLayoutManager)
 
         # Loading image
         self.nullImage = np.zeros((self.frameHeight, self.frameWidth, 3))
@@ -85,6 +96,7 @@ class View(QMainWindow):
         self.buttonLayout.addWidget(self.comboBox)
         self.buttonLayout.addWidget(self.convertAllButton)
         self.buttonLayout.addWidget(self.clearAllButton)
+        self.buttonLayout.addWidget(self.layoutButton)
 
         # Laying out
         self._layout = QHBoxLayout()
@@ -108,6 +120,10 @@ class View(QMainWindow):
         self.tree_view.setRootIndex(self.sorting_model.mapFromSource(self.model.index('./' + self.paths['DCM'])))
         self.tree_view.header().setSortIndicator(0, Qt.AscendingOrder)
         self.tree_view.setSortingEnabled(True)
+
+    
+    def launchLayoutManager(self):
+        launchLayoutManager(self.paths[self.format.name])
     
     def verifyAndCreatePaths(self):
         # Creating paths var
@@ -270,7 +286,9 @@ class View(QMainWindow):
             return
 
         print("Deleting")
-        for folder in self.paths.values():
+        paths = list(self.paths.values())
+        paths.append('archive/')
+        for folder in paths:
             for filename in os.listdir(folder):
                 file_path = os.path.join(folder, filename)
                 try:
@@ -280,6 +298,8 @@ class View(QMainWindow):
                         shutil.rmtree(file_path)
                 except Exception as e:
                     print('Failed to delete %s. Reason: %s' % (file_path, e))
+        
+        self.reset()
 
 
 class DeleteConfirmationDialog(QDialog):
