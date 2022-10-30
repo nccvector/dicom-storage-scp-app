@@ -141,6 +141,12 @@ class View(QMainWindow):
                 print("CREATING " + path)
                 os.makedirs(path)
         
+        # Creating a path for video files
+        self.videosPath = self.config['archive_path'] + '/' + 'Videos'
+        if not os.path.exists(self.videosPath):
+            print("CREATING " + self.videosPath)
+            os.makedirs(self.videosPath)
+ 
         return paths
     
     def traverseDirectory(self, parentindex):
@@ -222,17 +228,21 @@ class View(QMainWindow):
         # intialize a thread timer
         self.timer = QTimer()
         self.timer.timeout.connect(self.getNextFrame)
-        self.timer.start(10)
+        self.timer.start(33)
     
     def getNextFrame(self):
         """Read frame from camera and repaint QLabel widget.
         """
         curr = self.frames[self.frameCounter, :, :, :]
+        curr = cv2.cvtColor(curr, cv2.COLOR_YUV2RGB)
 
         self.showImage(curr)
 
         # incrementing frame counter
         self.frameCounter += 1
+
+        if self.frameCounter >= self.frames.shape[0]:
+            self.timer.stop()
     
     # Event
     def resizeEvent(self, event):
@@ -258,24 +268,59 @@ class View(QMainWindow):
 
             # Creating file path
             filename = f.split("/")[-1]
-            filepath = self.paths[self.format.name] + '/' + filename + '.'
-            print(filepath)
+            filename = filename[4:]
+            print(filename)
 
-            try:
-                if len(dataset.pixel_array.shape) == 4:
-                    print("4D IMAGE NOT SUPPORTED FOR CONVERSION YET...")
-                else:
+            # try:
+            if len(dataset.pixel_array.shape) == 4:
+                filepath = self.videosPath + '/' + filename + '.mp4'
+                print(filepath)
 
+                # Have to dump a video
+                _, H, W, C = dataset.pixel_array.shape
+                self._capture = cv2.VideoCapture(0)
+                self._outVideo = cv2.VideoWriter(filepath + '.mp4', cv2.VideoWriter_fourcc(*'MP4V'), 10, (W, H))
+
+                for ind, data in enumerate(dataset.pixel_array):
+                    # Vida frames are in YUV color space
                     # Have to swtich color channels before saving with opencv
-                    data = dataset.pixel_array[:, :, ::-1]
+                    data = cv2.cvtColor(data, cv2.COLOR_YUV2RGB)
+                    data = data[:, :, ::-1]
 
-                    if(self.format == Format.JPG):
-                        cv2.imwrite(filepath + '.jpg', data, [cv2.IMWRITE_JPEG_QUALITY, 100])
-                    else:
-                        cv2.imwrite(filepath + self.format.name.lower(), data)
-            except:
-                print("ERROR! COULD NOT SAVE THIS FILE: " + f)
-                pass
+                    self._outVideo.write(data)
+                
+                # Close the video file
+                self._outVideo.release()
+
+                #     if(self.format == Format.JPG):
+                #         cv2.imwrite(filepath + str(ind) + '.jpg', data, [cv2.IMWRITE_JPEG_QUALITY, 100])
+                #     elif self.format == Format.BMP:
+                #         cv2.imwrite(filepath + str(ind) + '.bmp', data)
+                #     elif self.format == Format.TIF:
+                #         cv2.imwrite(filepath + str(ind) + '.tif', data)
+                #     elif self.format == Format.PNG:
+                #         cv2.imwrite(filepath + str(ind) + '.png', data)
+                            
+                # print("4D IMAGE NOT SUPPORTED FOR CONVERSION YET...")
+            else:
+                filepath = self.paths[self.format.name] + '/' + filename + '.' + self.format.name.lower()
+                print(filepath)
+
+                # Have to swtich color channels before saving with opencv
+                data = dataset.pixel_array[:, :, ::-1]
+
+                if(self.format == Format.JPG):
+                    cv2.imwrite(filepath + '.jpg', data, [cv2.IMWRITE_JPEG_QUALITY, 100])
+                elif self.format == Format.BMP:
+                    cv2.imwrite(filepath + '.bmp', data)
+                elif self.format == Format.TIF:
+                    cv2.imwrite(filepath + '.tif', data)
+                elif self.format == Format.PNG:
+                    cv2.imwrite(filepath + '.png', data)
+
+            # except:
+            #     print("ERROR! COULD NOT SAVE THIS FILE: " + f)
+            #     pass
     
     def clearAll(self):
 
