@@ -1,3 +1,5 @@
+from sys import platform
+
 import os, shutil
 import signal
 import sys
@@ -7,7 +9,14 @@ from glob import glob
 
 # Processing includes
 import numpy as np
-from cv2 import cv2
+
+if platform == "linux":
+    import cv2
+elif platform == "win32":
+    from cv2 import cv2
+else:
+    raise Exception("Unsupported platform")
+
 from enum import Enum
 
 # Dicom includes
