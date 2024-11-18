@@ -100,7 +100,7 @@ class LayoutView(QMainWindow):
         # fullImage[maxHeight:, :maxWidth, :] = self.quadImageGroupBox.images[Corner.BL.name]
         # fullImage[maxHeight:, maxWidth:, :] = self.quadImageGroupBox.images[Corner.BR.name]
 
-        bordersize = 30
+        bordersize = 20
         bordered = cv2.copyMakeBorder(
             fullImage,
             top=bordersize,
@@ -202,6 +202,7 @@ class QuadImageGroupBox(QGroupBox):
             os.mkdir('cache')
 
         imgName = path.split('/')[-1]
+        imgName = imgName[4:]
         previewPath = 'cache/' + imgName
         prev = image.copy()
         prev = cv2.resize(prev, (int(frameWidth/2), int(frameHeight/2)), cv2.INTER_AREA)
