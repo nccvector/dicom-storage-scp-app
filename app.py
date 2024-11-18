@@ -1,6 +1,7 @@
 from sys import platform
 
-import os, shutil
+import os
+import shutil
 import signal
 import sys
 import subprocess
@@ -33,6 +34,10 @@ import qdarktheme
 
 # App imports
 from app2 import LayoutView
+from layout_two import LayoutView as LayoutViewTwo
+from layout_eight import LayoutView as LayoutViewEight
+from layout_twelve import LayoutView as LayoutViewTwelve
+
 
 class Format(Enum):
     BMP = 0
@@ -40,10 +45,25 @@ class Format(Enum):
     PNG = 2
     JPG = 3
 
-def launchLayoutManager(path):
+
+def launchLayoutViewTwo(path):
+    view = LayoutViewTwo(path)
+    view.show()
+
+
+def launchLayoutViewFour(path):
     view = LayoutView(path)
     view.show()
 
+
+def launchLayoutViewEight(path):
+    view = LayoutViewEight(path)
+    view.show()
+
+
+def launchLayoutViewTwelve(path):
+    view = LayoutViewTwelve(path)
+    view.show()
 
 class View(QMainWindow):
     def __init__(self):
@@ -51,7 +71,7 @@ class View(QMainWindow):
         # Setting default formate
         self.format = Format.BMP
         self.reset()
-    
+
     def reset(self):
 
         # Loading config file
@@ -62,7 +82,7 @@ class View(QMainWindow):
                 print('Config: ', self.config)
             except yaml.YAMLError as exc:
                 print(exc)
-        
+
         self.paths = self.verifyAndCreatePaths()
         for path in self.paths.values():
             print(path)
@@ -87,8 +107,18 @@ class View(QMainWindow):
         self.convertAllButton.clicked.connect(self.convertAll)
         self.clearAllButton = QPushButton("Clear All")
         self.clearAllButton.clicked.connect(self.clearAll)
-        self.layoutButton = QPushButton("Layout Images")
-        self.layoutButton.clicked.connect(self.launchLayoutManager)
+
+        self.layoutButtonTwo = QPushButton("Layout Image Two")
+        self.layoutButtonTwo.clicked.connect(self.launchLayoutViewTwo)
+
+        self.layoutButton = QPushButton("Layout Images Four")
+        self.layoutButton.clicked.connect(self.launchLayoutViewFour)
+
+        self.layoutButtonEight = QPushButton("Layout Image Eight")
+        self.layoutButtonEight.clicked.connect(self.launchLayoutViewEight)
+
+        self.layoutButtonTwelve = QPushButton("Layout Image Twelve")
+        self.layoutButtonTwelve.clicked.connect(self.launchLayoutViewTwelve)
 
         # Loading image
         self.nullImage = np.zeros((self.frameHeight, self.frameWidth, 3))
@@ -99,13 +129,16 @@ class View(QMainWindow):
         for enum in Format:
             self.comboBox.addItem(enum.name)
         self.comboBox.currentIndexChanged.connect(self.index_changed)
-        
+
         # Setting button layout
         self.buttonLayout.addWidget(self.formatLabel, alignment=Qt.AlignRight)
         self.buttonLayout.addWidget(self.comboBox)
         self.buttonLayout.addWidget(self.convertAllButton)
         self.buttonLayout.addWidget(self.clearAllButton)
+        self.buttonLayout.addWidget(self.layoutButtonTwo)
         self.buttonLayout.addWidget(self.layoutButton)
+        self.buttonLayout.addWidget(self.layoutButtonEight)
+        # self.buttonLayout.addWidget(self.layoutButtonTwelve)  # Thinking more about twelve
 
         # Laying out
         self._layout = QHBoxLayout()
@@ -130,34 +163,42 @@ class View(QMainWindow):
         self.tree_view.header().setSortIndicator(0, Qt.AscendingOrder)
         self.tree_view.setSortingEnabled(True)
 
-    
-    def launchLayoutManager(self):
-        launchLayoutManager(self.paths[self.format.name])
-    
+    def launchLayoutViewTwo(self):
+        launchLayoutViewTwo(self.paths[self.format.name])
+
+    def launchLayoutViewFour(self):
+        launchLayoutViewFour(self.paths[self.format.name])
+
+    def launchLayoutViewEight(self):
+        launchLayoutViewEight(self.paths[self.format.name])
+
+    def launchLayoutViewTwelve(self):
+        launchLayoutViewTwelve(self.paths[self.format.name])
+
     def verifyAndCreatePaths(self):
         # Creating paths var
         formats = [format.name for format in Format]
         formats.append('DCM')   # Adding dicom folder
-        
+
         paths = {}
         for form in formats:
             paths[form] = self.config['archive_path'] + '/' + form
-        
+
         # Verifying and creating paths
         for path in paths.values():
             # Creating an archive folder is doesnt exist
             if not os.path.exists(path):
                 print("CREATING " + path)
                 os.makedirs(path)
-        
+
         # Creating a path for video files
         self.videosPath = self.config['archive_path'] + '/' + 'Videos'
         if not os.path.exists(self.videosPath):
             print("CREATING " + self.videosPath)
             os.makedirs(self.videosPath)
- 
+
         return paths
-    
+
     def traverseDirectory(self, parentindex):
         print('traverseDirectory():')
         if self.hasChildren(parentindex):
@@ -168,7 +209,7 @@ class View(QMainWindow):
                 self.traverseDirectory(childIndex)
         else:
             print('no children')
-    
+
     def on_click(self, item):
         # print item from first column
         # index = self.tree_view.selectedIndexes()[0]
@@ -192,7 +233,7 @@ class View(QMainWindow):
         print("File Path:   ", path)
         print("File Type:   ", filetype)
         print("File Ext:    ", extension)
-    
+
     def index_changed(self, index):
         self.format = Format(index)
         print("FORMAT SELECTED: ", self.format.name)
@@ -207,21 +248,21 @@ class View(QMainWindow):
         frame = cv2.resize(frame, (self.frameWidth, self.frameHeight), cv2.INTER_AREA)
 
         # Creating image from frame
-        image = QImage(frame, frame.shape[1], frame.shape[0], 
-                    frame.strides[0], QImage.Format_RGB888)
+        image = QImage(frame, frame.shape[1], frame.shape[0],
+                       frame.strides[0], QImage.Format_RGB888)
 
         pixmap = QPixmap.fromImage(image)
         self.label.setPixmap(pixmap)
-    
+
     def showJpegImage(self, path):
         frame = cv2.imread(path)
-        
+
         self.showImage(frame)
-    
+
     def showDicomImage(self, path):
         dataset = pydicom.dcmread(path)
 
-        if(len(dataset.pixel_array.shape) == 4):
+        if (len(dataset.pixel_array.shape) == 4):
             print("STARTING VIDEO...")
             frame = dataset.pixel_array
             self.showVideo(frame)
@@ -229,7 +270,7 @@ class View(QMainWindow):
         else:
             frame = dataset.pixel_array[:, :, :]
             self.showImage(frame)
-    
+
     def showVideo(self, frame):
         self.frameCounter = 0
         self.frames = frame
@@ -238,7 +279,7 @@ class View(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.getNextFrame)
         self.timer.start(33)
-    
+
     def getNextFrame(self):
         """Read frame from camera and repaint QLabel widget.
         """
@@ -252,7 +293,7 @@ class View(QMainWindow):
 
         if self.frameCounter >= self.frames.shape[0]:
             self.timer.stop()
-    
+
     # Event
     def resizeEvent(self, event):
         # self.resized.emit()
@@ -268,7 +309,7 @@ class View(QMainWindow):
 
         # Updating the image by calling show image
         self.showImage(self.currentFrame)
-    
+
     def convertAll(self):
         print("CONVERTING FILES")
         print("Dumping ", self.format.name)
@@ -297,7 +338,7 @@ class View(QMainWindow):
                     data = data[:, :, ::-1]
 
                     self._outVideo.write(data)
-                
+
                 # Close the video file
                 self._outVideo.release()
 
@@ -309,7 +350,7 @@ class View(QMainWindow):
                 #         cv2.imwrite(filepath + str(ind) + '.tif', data)
                 #     elif self.format == Format.PNG:
                 #         cv2.imwrite(filepath + str(ind) + '.png', data)
-                            
+
                 # print("4D IMAGE NOT SUPPORTED FOR CONVERSION YET...")
             else:
                 filepath = self.paths[self.format.name] + '/' + filename + '.' + self.format.name.lower()
@@ -318,7 +359,7 @@ class View(QMainWindow):
                 # Have to swtich color channels before saving with opencv
                 data = dataset.pixel_array[:, :, ::-1]
 
-                if(self.format == Format.JPG):
+                if (self.format == Format.JPG):
                     cv2.imwrite(filepath + '.jpg', data, [cv2.IMWRITE_JPEG_QUALITY, 100])
                 elif self.format == Format.BMP:
                     cv2.imwrite(filepath + '.bmp', data)
@@ -330,7 +371,7 @@ class View(QMainWindow):
             # except:
             #     print("ERROR! COULD NOT SAVE THIS FILE: " + f)
             #     pass
-    
+
     def clearAll(self):
 
         dlg = DeleteConfirmationDialog()
@@ -352,7 +393,7 @@ class View(QMainWindow):
                         shutil.rmtree(file_path)
                 except Exception as e:
                     print('Failed to delete %s. Reason: %s' % (file_path, e))
-        
+
         self.reset()
 
 
@@ -378,14 +419,14 @@ class DeleteConfirmationDialog(QDialog):
 class SortingModel(QSortFilterProxyModel):
     def lessThan(self, source_left, source_right):
         file_info1 = self.sourceModel().fileInfo(source_left)
-        file_info2 = self.sourceModel().fileInfo(source_right)       
-        
+        file_info2 = self.sourceModel().fileInfo(source_right)
+
         if file_info1.fileName() == "..":
             return self.sortOrder() == Qt.SortOrder.AscendingOrder
 
         if file_info2.fileName() == "..":
             return self.sortOrder() == Qt.SortOrder.DescendingOrder
-                
+
         if (file_info1.isDir() and file_info2.isDir()) or (file_info1.isFile() and file_info2.isFile()):
             return super().lessThan(source_left, source_right)
 
@@ -400,16 +441,17 @@ if __name__ == "__main__":
     view = View()
 
     # Starting server
-    process = subprocess.Popen(['python', 'storescp.py', 
-                            str(view.config['port']), 
-                            '-ba', view.config['ip'], 
-                            '-od', view.paths['DCM'], 
-                            '-aet', view.config['ae_title'], 
-                            '-v'], 
-                            stdout=subprocess.PIPE,
-                            universal_newlines=True)
+    process = subprocess.Popen(['python', 'storescp.py',
+                                str(view.config['port']),
+                                '-ba', view.config['ip'],
+                                '-od', view.paths['DCM'],
+                                '-aet', view.config['ae_title'],
+                                '-v'],
+                               stdout=subprocess.PIPE,
+                               universal_newlines=True)
 
     view.show()
     app.exec()
     os.kill(process.pid, signal.SIGTERM)
     sys.exit()
+
